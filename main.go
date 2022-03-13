@@ -463,6 +463,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	fmt.Println("github.com/ludoux/qbittorrent-torrents-exporter")
 	checkUpdateUrl := "https://gitee.com/ludoux/check-update/raw/master/qbittorrent-torrents-exporter/version.txt"
 	if githubChannel {
 		checkUpdateUrl = "https://raw.githubusercontent.com/ludoux/qbittorrent-torrents-exporter/master/version.txt"
@@ -473,7 +474,8 @@ func main() {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	if string(body) != "1" {
+	fmt.Println(string(body))
+	if string(body) != "0.1.3" {
 		fmt.Println("New version found!")
 	}
 	if qbUrl == "" {
