@@ -66,6 +66,6 @@ Tool will ask users to provide information if all arguments are unset or only `-
 
 ### 截图 | Screenshots
 
-![](README.assets/screenshot-with arguments.png)
+![](./README.assets/screenshot-with_arguments.png)
 
-![](README.assets/screenshot-tree after 'with arguments'.png)
+![](./README.assets/screenshot-tree.png)
