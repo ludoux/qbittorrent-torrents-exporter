@@ -9,17 +9,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
       - name: gen changelog
         id: changelog
-        uses: metcalfc/changelog-generator@v1.0.1
+        uses: metcalfc/changelog-generator@v3.0.0
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
-      - name: gen body text
-        run: echo '${{ steps.changelog.outputs.changelog }}' > ${{ github.workspace }}-body.txt
+
       - name: Release
-        uses: softprops/action-gh-release@v1
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          body_path: ${{ github.workspace }}-body.txt
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
 
   release-matrix:
     needs: gen-new-release-item
