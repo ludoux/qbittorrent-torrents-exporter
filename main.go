@@ -474,8 +474,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
-	if string(body) != "0.1.3" {
+	if string(body) != "0.1.4" {
 		fmt.Println("New version found!")
 	}
 	if qbUrl == "" {

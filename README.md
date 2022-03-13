@@ -1,4 +1,4 @@
-# qbittorrent-torrents-exporter 0.1.0
+# qbittorrent-torrents-exporter
 本工具需要Web API 功能打开的**运行中的 qbittorrent 客户端**和其配套的 **`BT_backup` 文件夹**。
 
 本工具用于从 BT_backup 中导出 torrent 文件并重命名，并基于 Web API 来支持对 tracker、标签、分类、保存路径等筛选导出。同时针对 qbittorrent 4.4.x 版本会将 tracker 信息从 .torrent 文件中移除一改变，工具支持自动从 .fastresume 文件中读取并还原进导出的 .torrent 文件。
@@ -64,7 +64,7 @@ PS: If  `qh` is unset, tool will ask users to give login information. If `fc` `f
 
 Tool will ask users to provide information if all arguments are unset or only `-githubchannel` is set.
 
-### 截图 | Screenshots
+## 截图 | Screenshots
 
 ![](./README.assets/screenshot-with_arguments.png)
 
