@@ -21,7 +21,7 @@ jobs:
         with:
           body_path: ${{ github.workspace }}-body.txt
 
-  release-linux-amd64:
+  release-matrix:
     needs: gen-new-release-item
     if: startsWith(github.ref, 'refs/tags/')
     name: release linux/amd64
@@ -31,8 +31,13 @@ jobs:
 
     strategy:
       matrix:
-        goos: [linux]
-        goarch: [amd64, arm64]
+        goos: [linux, windows]
+        goarch: ["386",amd64, arm64]
+        exclude:
+          - goarch: arm64
+            goos: windows
+          - goarch: "386"
+            goos: windows
     steps:
     - name: Checkout
       uses: actions/checkout@v2
