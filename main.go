@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	bencode "github.com/jackpal/bencode-go"
 	"github.com/nohajc/go-qbittorrent/qbt"
@@ -41,6 +42,8 @@ var (
 	filterTag         string
 	appendTag         string
 )
+
+var version string = "0.1.5"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -75,18 +78,6 @@ func getTrackerHost(trackers string) (string, error) {
 }
 func genMap(url string, username string, password string) (hashsPair, error) {
 	rt := hashsPair{}
-	qb = qbt.NewClient(url)
-
-	qb.Login(qbt.LoginOptions{Username: username, Password: password})
-	// not required when 'Bypass from localhost' setting is active.
-	filters := map[string]string{
-		//"limit":  "400",
-		"sort": "added_on",
-		//"offset": "0",
-	}
-	//offset 即为忽略前面多少个
-	torrents, _ := qb.Torrents(filters)
-
 	//========分类存储
 	hash2Torrent := map[string]qbt.BasicTorrent{}
 	savePath2Hashs := map[string][]string{}
@@ -94,41 +85,66 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 	category2Hashs := map[string][]string{}
 	tag2Hashs := map[string][]string{}
 
-	for _, torrent := range torrents {
-		/*if !strings.Contains(torrent.State, "UP") && torrent.State != "uploading" {
-			fmt.Println(torrent.Name, "处于", torrent.State, "状态，跳过")
-			continue
-		}*/
-		if torrent.Tracker == "" { //when have multy trackers
-			trackers, _ := qb.TorrentTrackers(torrent.Hash)
-			first := true
-			for _, v := range trackers {
-				if v.Tier >= 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
-					if first {
-						torrent.Tracker = v.URL
-						first = false
-					} else {
-						torrent.Tracker = torrent.Tracker + "|" + v.URL
+	qb = qbt.NewClient(url)
+
+	qb.Login(qbt.LoginOptions{Username: username, Password: password})
+	// not required when 'Bypass from localhost' setting is active.
+	singlelimit := 100
+	for i := 0; true; i++ {
+		filters := map[string]string{
+			"limit":  cast.ToString(singlelimit),
+			"sort":   "added_on",
+			"offset": cast.ToString(singlelimit * i),
+		}
+		//offset 即为忽略前面多少个，当超过之后，会返回offset=0返回的值
+		torrents, _ := qb.Torrents(filters)
+
+		if _, dupe := hash2Torrent[torrents[0].Hash]; dupe {
+			break
+		}
+
+		fmt.Println("get torrents: " + cast.ToString(singlelimit*i+1) + "~" + cast.ToString(singlelimit*i+len(torrents)))
+		for _, torrent := range torrents {
+			/*if !strings.Contains(torrent.State, "UP") && torrent.State != "uploading" {
+				fmt.Println(torrent.Name, "处于", torrent.State, "状态，跳过")
+				continue
+			}*/
+			if torrent.Tracker == "" { //when have multy trackers
+				trackers, _ := qb.TorrentTrackers(torrent.Hash)
+				first := true
+				for _, v := range trackers {
+					if v.Tier >= 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
+						if first {
+							torrent.Tracker = v.URL
+							first = false
+						} else {
+							torrent.Tracker = torrent.Tracker + "|" + v.URL
+						}
 					}
 				}
 			}
+			hash2Torrent[torrent.Hash] = torrent
+
+			savePath2Hashs[torrent.SavePath] = append(savePath2Hashs[torrent.SavePath], torrent.Hash)
+
+			host, err := getTrackerHost(torrent.Tracker)
+			if err != nil {
+				return rt, err
+			}
+			trackerHost2Hashs[host] = append(trackerHost2Hashs[host], torrent.Hash)
+
+			category2Hashs[torrent.Category] = append(category2Hashs[torrent.Category], torrent.Hash)
+
+			tags := strings.Split(torrent.Tags, ",")
+			for _, tag := range tags {
+				tag2Hashs[tag] = append(tag2Hashs[tag], torrent.Hash)
+			}
 		}
-		hash2Torrent[torrent.Hash] = torrent
-
-		savePath2Hashs[torrent.SavePath] = append(savePath2Hashs[torrent.SavePath], torrent.Hash)
-
-		host, err := getTrackerHost(torrent.Tracker)
-		if err != nil {
-			return rt, err
+		if len(torrents) < singlelimit {
+			break
 		}
-		trackerHost2Hashs[host] = append(trackerHost2Hashs[host], torrent.Hash)
-
-		category2Hashs[torrent.Category] = append(category2Hashs[torrent.Category], torrent.Hash)
-
-		tags := strings.Split(torrent.Tags, ",")
-		for _, tag := range tags {
-			tag2Hashs[tag] = append(tag2Hashs[tag], torrent.Hash)
-		}
+		//0.010s
+		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 	rt.hash2Torrent = hash2Torrent
 	rt.savePath2Hashs = savePath2Hashs
@@ -291,7 +307,8 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		curPath := strings.ReplaceAll(curPathStyle, "<path>", toSafeFolderName(torrent.SavePath))
 		h, err := getTrackerHost(torrent.Tracker)
 		if err != nil {
-			return err
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Failed to getTrackerHost. err:"+err.Error())
+			continue
 		}
 		curPath = strings.ReplaceAll(curPath, "<trackerhost>", toSafeFolderName(h))
 		curPath = strings.ReplaceAll(curPath, "<category>", toSafeFolderName(torrent.Category))
@@ -300,7 +317,8 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		os.Create(curPath + "realpath.txt")
 		err = os.WriteFile(curPath+"realpath.txt", []byte(torrent.SavePath), 0666)
 		if err != nil {
-			return err
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Failed to create realpath.txt. err:"+err.Error())
+			continue
 		}
 		curFilename := curFilenameStyle
 		curFilename = strings.ReplaceAll(curFilename, "<tags>", toSafeFolderName(torrent.Tags))
@@ -313,13 +331,14 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		}
 		_, err = os.Stat("BT_backup/" + hash + ".fastresume")
 		if err != nil {
-			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") fastresume Not Found in BT_backup")
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") .fastresume Not Found in BT_backup")
 			continue
 		}
 
 		_, err = copy("BT_backup/"+hash+".torrent", curPath+curFilename)
 		if err != nil {
-			return err
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Copy .torrent failed. Please check your file permission. err:"+err.Error())
+			continue
 		}
 		//====qb4.4.x
 		qb440 := ""
@@ -332,6 +351,7 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		fmt.Println("Done:", curPath, curFilename, qb440)
 		doneHashs = append(doneHashs, hash)
 	}
+
 	if appendTagName != "" {
 		for _, hash := range doneHashs {
 			fTags := []string{}
@@ -345,6 +365,7 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		}
 
 	}
+	fmt.Println("Done.")
 	return nil
 }
 
@@ -463,7 +484,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	fmt.Println("github.com/ludoux/qbittorrent-torrents-exporter")
+	fmt.Println("github.com/ludoux/qbittorrent-torrents-exporter v" + version)
 	checkUpdateUrl := "https://gitee.com/ludoux/check-update/raw/master/qbittorrent-torrents-exporter/version.txt"
 	if githubChannel {
 		checkUpdateUrl = "https://raw.githubusercontent.com/ludoux/qbittorrent-torrents-exporter/master/version.txt"
@@ -474,7 +495,7 @@ func main() {
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	if string(body) != "0.1.4" {
+	if string(body) != version {
 		fmt.Println("New version found!")
 	}
 	if qbUrl == "" {
