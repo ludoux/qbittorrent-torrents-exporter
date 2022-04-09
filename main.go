@@ -44,7 +44,7 @@ var (
 	appendTag         string
 )
 
-var version string = "0.2.0"
+var version string = "0.2.1"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
