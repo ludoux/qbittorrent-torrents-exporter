@@ -198,7 +198,7 @@ func contains(elems []string, v string) bool {
 	}
 	return false
 }
-func copy(src, dst string) (int64, error) {
+func copyTorrent(src, dst string) (int64, error) {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
 		return 0, err
@@ -213,6 +213,17 @@ func copy(src, dst string) (int64, error) {
 		return 0, err
 	}
 	defer source.Close()
+
+	oriDst := dst
+	for i := 1; true; i++ {
+		_, err = os.Stat(dst)
+		if err == nil {
+			//same name file exist
+			dst = strings.Replace(oriDst, ".torrent", "_"+cast.ToString(i)+".torrent", 1)
+		} else {
+			break
+		}
+	}
 
 	destination, err := os.Create(dst)
 	if err != nil {
@@ -317,6 +328,7 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 	//style := 2
 	//pathStyle := []string{"<SafePath>/<tracker>/<category>/"}
 	//fmt.Println("目前有四种输出方式:")
+	errorCount := 0
 	doneHashs := []string{}
 	curPathStyle := "export/<path>/<trackerhost>/<category>/"
 	curFilenameStyle := "[<tags>][<state>]<name>.torrent"
@@ -344,6 +356,7 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		h, err := getTrackerHost(torrent.Tracker)
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Failed to getTrackerHost. err:"+err.Error())
+			errorCount++
 			continue
 		}
 		curPath = strings.ReplaceAll(curPath, "<trackerhost>", toSafeFolderName(h))
@@ -354,6 +367,7 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		err = os.WriteFile(curPath+"realpath.txt", []byte(torrent.SavePath), 0666)
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Failed to create realpath.txt. err:"+err.Error())
+			errorCount++
 			continue
 		}
 		curFilename := curFilenameStyle
@@ -363,17 +377,20 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		_, err = os.Stat("BT_backup/" + hash + ".torrent")
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Not Found in BT_backup")
+			errorCount++
 			continue
 		}
 		_, err = os.Stat("BT_backup/" + hash + ".fastresume")
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") .fastresume Not Found in BT_backup")
+			errorCount++
 			continue
 		}
 
-		_, err = copy("BT_backup/"+hash+".torrent", curPath+curFilename)
+		_, err = copyTorrent("BT_backup/"+hash+".torrent", curPath+curFilename)
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Copy .torrent failed. Please check your file permission. err:"+err.Error())
+			errorCount++
 			continue
 		}
 		//====qb4.4.x
@@ -402,6 +419,9 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 
 	}
 	fmt.Println("Done.")
+	if errorCount > 0 {
+		fmt.Println("ErrorCount: " + cast.ToString(errorCount) + ". Please check the log above.")
+	}
 	return nil
 }
 
@@ -572,5 +592,6 @@ func main() {
 		fmt.Println("\n===SetFilter===\n")
 		setFilter(&hashs, &filterOptions, &appendTag)
 	}
+	fmt.Println("即将导出...")
 	exportTorrentFiles(&hashs, &filterOptions, appendTag)
 }
