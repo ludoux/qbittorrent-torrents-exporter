@@ -27,6 +27,7 @@ import (
 	bencode "github.com/jackpal/bencode-go"
 	"github.com/nohajc/go-qbittorrent/qbt"
 	"github.com/spf13/cast"
+	"github.com/wxnacy/wgo/arrays"
 )
 
 var qb *qbt.Client
@@ -43,7 +44,7 @@ var (
 	appendTag         string
 )
 
-var version string = "0.1.5"
+var version string = "0.2.0"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -61,20 +62,55 @@ type filterOptions struct {
 }
 
 func getTrackerHost(trackers string) (string, error) {
-	hostReg := regexp.MustCompile(`((http[s]?)?(://))?.+?/`)
+
+	hostReg := regexp.MustCompile(`((http://)|(https://)|(tcp://)|(udp://)|(ws://)|(wss://))?(?P<main>[^/]+?)(:\d+)?/`)
+	ipv4IpReg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
 	urls := strings.Split(trackers, "|")
+	result := ""
 	preHost := ""
+	warningFlag := false
 	for _, url := range urls {
-		match := hostReg.FindStringSubmatch(url)[0]
-		spl := strings.Split(match[:len(match)-1], ".")
-		host := spl[len(spl)-2] + "." + spl[len(spl)-1]
-		if preHost != "" && host != preHost {
-			return "", errors.New("diff tracker host found in the same torrent")
-		} else if preHost == "" {
-			preHost = host
+		matchs := hostReg.FindStringSubmatch(url)
+		groupNames := hostReg.SubexpNames()
+		tmpHost := ""
+		for i, v := range groupNames {
+			if v == "main" {
+				tmpHost = matchs[i]
+			}
+		}
+		if tmpHost == "" {
+			return "", errors.New("Can't get main host!")
+		}
+		if tmpHost[0] == '[' {
+			//ipv6
+			result = tmpHost
+		} else if ipv4IpReg.MatchString(tmpHost) {
+			//ipv4
+			result = tmpHost
+		} else {
+			//domain
+			sp := strings.Split(tmpHost, ".")
+			gLTD := []string{"com", "net", "org", "co"}
+			if len(sp) >= 3 {
+				if arrays.StringsContains(gLTD, sp[len(sp)-2]) != -1 {
+					// tracker.example.com.us will return as example.com.us
+					result = sp[len(sp)-3] + "." + sp[len(sp)-2] + "." + sp[len(sp)-1]
+				} else {
+					result = sp[len(sp)-2] + "." + sp[len(sp)-1]
+				}
+			} else {
+				result = sp[len(sp)-2] + "." + sp[len(sp)-1]
+			}
+		}
+		if preHost == "" {
+			preHost = result
+		} else if preHost != result && !warningFlag {
+			fmt.Println("warning: different trackerhost in the same torrent! Will use the last trackerhost for filter.")
+			warningFlag = true
+			preHost = result
 		}
 	}
-	return preHost, nil
+	return result, nil
 }
 func genMap(url string, username string, password string) (hashsPair, error) {
 	rt := hashsPair{}
