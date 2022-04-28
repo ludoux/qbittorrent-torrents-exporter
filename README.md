@@ -1,9 +1,13 @@
-# qbittorrent-torrents-exporter
+# qbittorrent-torrents-exporter ![GitHub release (latest by date)](https://img.shields.io/github/v/release/ludoux/qbittorrent-torrents-exporter?style=for-the-badge)
 本工具需要Web API 功能打开的**运行中的 qbittorrent 客户端**和其配套的 **`BT_backup` 文件夹**。
 
 本工具用于从 BT_backup 中导出 torrent 文件并重命名，并基于 Web API 来支持对 tracker、标签、分类、保存路径等筛选导出。同时针对 qbittorrent 4.4.x 版本会将 tracker 信息从 .torrent 文件中移除一改变，工具支持自动从 .fastresume 文件中读取并还原进导出的 .torrent 文件。
 
 请确保 `BT_backup` 文件夹（内含 .torrent 和 .fastresume 文件）与本工具处在同一目录下，导出的种子文件将会在新建的名为 `export` 的文件夹内。
+
+默认 BT_backup 文件夹地址 ([inspired from jslay88/qbt_migrate](https://github.com/jslay88/qbt_migrate)):
+ - Windows: `%LOCALAPPDATA%/qBittorrent/BT_backup`
+ - Linux/Mac: `$HOME/.local/share/data/qBittorrent/BT_backup`
 
 This tool need a **running qbittorrent program** with its Web API supported and its **`BT_backup` folder**.
 
@@ -11,7 +15,12 @@ It can help you export torrent files from BT_backup and automatically rename the
 
 Please make sure the `BT_backup` folder(.torrent and .fastresume files) is under the same folder with exporter, and the exported torrent files will in a new-create folder named `export`.
 
+Default BT_backup paths ([inspired from jslay88/qbt_migrate](https://github.com/jslay88/qbt_migrate)):
+ - Windows: `%LOCALAPPDATA%/qBittorrent/BT_backup`
+ - Linux/Mac: `$HOME/.local/share/data/qBittorrent/BT_backup`
 ## 使用方法 | How to use
+
+[Download the bianary (no Go environment needed) in releases page](https://github.com/ludoux/qbittorrent-torrents-exporter/releases)
 
 导出目录 | Exported Path: `export/<path>/<trackerhost>/<category>/`
 
@@ -57,6 +66,14 @@ Usage of ./main:
 PS: 如果不传入 `qh` 参数，则会使用引导交互来在终端输入登录信息等；如果不传入 `fc` `fp` `ft` `fth` `at` 中任一参数，则会使用交互引导来在终端输入筛选信息等。
 
 PS: If  `qh` is unset, tool will ask users to give login information. If `fc` `fp` `ft` `fth` and `at` are all unset, tool will ask users to give filter information.
+
+#### Examples
+```
+❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080"
+❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080" -qu "admin" -qp "adminadmin"
+❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080" -qu "admin" -qp "adminadmin" -fc "cate_needed_to_export"
+❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080" -qu "admin" -qp "adminadmin" -fc "cate_needed_to_export" -at "exported"
+```
 
 ### 交互式运行 | Running directly
 
