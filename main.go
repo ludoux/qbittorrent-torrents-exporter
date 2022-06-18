@@ -45,7 +45,7 @@ var (
 	disableTrackerHostAnalize bool = false
 )
 
-var version string = "0.2.1"
+var version string = "0.3.0"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -261,8 +261,11 @@ func checkTorrentHasTracker(path string) bool {
 	}
 	//fmt.Println(data)
 	rt := cast.ToStringMap(data)
-
-	return rt["announce"] != nil
+	if rt["announce"] == nil {
+		return rt["announce-list"] != nil
+	} else {
+		return true
+	}
 }
 
 func decodeFastResume(path string) []string {
@@ -302,20 +305,20 @@ func appendAnnounce(path string, trackers []string) {
 	if err != nil {
 		panic(err)
 	}
-	rt := cast.ToStringMap(data)
-	rt["announce"] = trackers[0]
+	moded := cast.ToStringMap(data)
+	moded["announce"] = trackers[0]
 	if len(trackers) > 1 {
 		aHead := [][]string{}
 		aList := []string{}
-		for i := 1; i < len(trackers); i++ {
+		for i := 0; i < len(trackers); i++ {
 			aList = append(aList, trackers[i])
 		}
 		aHead = append(aHead, aList)
-		rt["announce-list"] = aHead
+		moded["announce-list"] = aHead
 	}
 
 	var buf bytes.Buffer
-	err = bencode.Marshal(&buf, rt)
+	err = bencode.Marshal(&buf, moded)
 	if err != nil {
 		panic(err)
 	}
