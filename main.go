@@ -33,15 +33,16 @@ import (
 var qb *qbt.Client
 
 var (
-	githubChannel     bool
-	qbUrl             string
-	qbUsername        string
-	qbPassword        string
-	filterPath        string
-	filterTrackerHost string
-	filterCategory    string
-	filterTag         string
-	appendTag         string
+	githubChannel             bool
+	qbUrl                     string
+	qbUsername                string
+	qbPassword                string
+	filterPath                string
+	filterTrackerHost         string
+	filterCategory            string
+	filterTag                 string
+	appendTag                 string
+	disableTrackerHostAnalize bool = false
 )
 
 var version string = "0.2.1"
@@ -63,9 +64,12 @@ type filterOptions struct {
 
 func getTrackerHost(trackers string) (string, error) {
 
+	if disableTrackerHostAnalize {
+		return trackers, nil
+	}
 	hostReg := regexp.MustCompile(`((http://)|(https://)|(tcp://)|(udp://)|(ws://)|(wss://))?(?P<main>[^/]+?)(:\d+)?/`)
 	ipv4IpReg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
-	urls := strings.Split(trackers, "|")
+	urls := strings.Split(trackers, "(split)")
 	result := ""
 	preHost := ""
 	warningFlag := false
@@ -154,7 +158,7 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 							torrent.Tracker = v.URL
 							first = false
 						} else {
-							torrent.Tracker = torrent.Tracker + "|" + v.URL
+							torrent.Tracker = torrent.Tracker + "(split)" + v.URL
 						}
 					}
 				}
@@ -536,6 +540,7 @@ func init() {
 	flag.StringVar(&filterCategory, "fc", "-", "CategoryFilter")
 	flag.StringVar(&filterTag, "ft", "-", "TagFilter")
 	flag.StringVar(&appendTag, "at", "-", "AppendTag")
+	flag.BoolVar(&disableTrackerHostAnalize, "disableAnalize", false, "DisableTrackerHostAnalize")
 }
 
 func main() {
