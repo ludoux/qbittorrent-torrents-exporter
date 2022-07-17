@@ -3,7 +3,9 @@
 
 本工具用于从 BT_backup 中导出 torrent 文件并重命名，并基于 Web API 来支持对 tracker、标签、分类、保存路径等筛选导出。同时针对 qbittorrent 4.4.x 版本会将 tracker 信息从 .torrent 文件中移除一改变，工具支持自动从 .fastresume 文件中读取并还原进导出的 .torrent 文件。
 
-请确保 `BT_backup` 文件夹（内含 .torrent 和 .fastresume 文件）与本工具处在同一目录下，导出的种子文件将会在新建的名为 `export` 的文件夹内。
+请确保 `BT_backup` 文件夹（内含 .torrent 和 .fastresume 文件）与本工具处在同一目录下 **（如下图示意）** ，导出的种子文件将会在新建的名为 `export` 的文件夹内。
+
+![相对位置示意](https://user-images.githubusercontent.com/13460812/167232603-afc2db57-41fd-4a4c-acaa-cda806ef158b.png)
 
 默认 BT_backup 文件夹地址 ([inspired from jslay88/qbt_migrate](https://github.com/jslay88/qbt_migrate)):
  - Windows: `%LOCALAPPDATA%/qBittorrent/BT_backup`
