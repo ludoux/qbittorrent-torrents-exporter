@@ -45,7 +45,7 @@ var (
 	disableTrackerHostAnalize bool = false
 )
 
-var version string = "0.3.0"
+var version string = "0.3.1"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -65,7 +65,7 @@ type filterOptions struct {
 func getTrackerHost(trackers string) (string, error) {
 
 	if disableTrackerHostAnalize {
-		return trackers, nil
+		return "_tracker_", nil
 	}
 	hostReg := regexp.MustCompile(`((http://)|(https://)|(tcp://)|(udp://)|(ws://)|(wss://))?(?P<main>[^/]+?)(:\d+)?/`)
 	ipv4IpReg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
