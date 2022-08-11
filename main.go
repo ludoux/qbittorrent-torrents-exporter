@@ -14,7 +14,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -45,7 +44,7 @@ var (
 	disableTrackerHostAnalize bool = false
 )
 
-var version string = "0.3.1"
+var version string = "0.3.2"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -83,7 +82,7 @@ func getTrackerHost(trackers string) (string, error) {
 			}
 		}
 		if tmpHost == "" {
-			return "", errors.New("Can't get main host!")
+			return "", errors.New("can't get main host")
 		}
 		if tmpHost[0] == '[' {
 			//ipv6
@@ -403,9 +402,15 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		//====qb4.4.x
 		qb440 := ""
 		if !checkTorrentHasTracker("BT_backup/" + hash + ".torrent") {
-			qb440 = " [qB4.4.x trackers fixed]"
+
 			tks := decodeFastResume("BT_backup/" + hash + ".fastresume")
-			appendAnnounce(curPath+curFilename, tks)
+			if len(tks) == 0 {
+				qb440 = " [no tracker found in" + hash + ".torrent/fastresume]"
+			} else {
+				qb440 = " [qB4.4.x trackers fixed]"
+				appendAnnounce(curPath+curFilename, tks)
+			}
+
 		}
 
 		fmt.Println("Done:", curPath, curFilename, qb440)
@@ -558,7 +563,7 @@ func main() {
 		fmt.Println(err)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	if string(body) != version {
 		fmt.Println("New version found!")
 	}
