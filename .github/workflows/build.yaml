@@ -58,3 +58,4 @@ jobs:
         release_tag: ${{steps.get_version.outputs.version}}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
+        md5sum: FALSE
