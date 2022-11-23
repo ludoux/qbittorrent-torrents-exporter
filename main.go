@@ -42,9 +42,10 @@ var (
 	filterTag                 string
 	appendTag                 string
 	disableTrackerHostAnalize bool = false
+	debug                     bool = false
 )
 
-var version string = "0.3.2"
+var version string = "0.3.3"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -82,7 +83,7 @@ func getTrackerHost(trackers string) (string, error) {
 			}
 		}
 		if tmpHost == "" {
-			return "", errors.New("can't get main host")
+			return "", errors.New("can't get main host! The raw trackers is" + trackers)
 		}
 		if tmpHost[0] == '[' {
 			//ipv6
@@ -108,10 +109,13 @@ func getTrackerHost(trackers string) (string, error) {
 		if preHost == "" {
 			preHost = result
 		} else if preHost != result && !warningFlag {
-			fmt.Println("warning: different trackerhost in the same torrent! Will use the last trackerhost for filter.")
+			fmt.Println("Warning: different trackerhost in the same torrent! Will use the last trackerhost for filter.")
 			warningFlag = true
 			preHost = result
 		}
+	}
+	if debug {
+		fmt.Println("==[Debug]==\nRaw Trackers: " + trackers + "\nResult: " + result + "\n==[Off]==")
 	}
 	return result, nil
 }
@@ -127,7 +131,6 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 	qb = qbt.NewClient(url)
 
 	qb.Login(qbt.LoginOptions{Username: username, Password: password})
-	// not required when 'Bypass from localhost' setting is active.
 	singlelimit := 100
 	for i := 0; true; i++ {
 		filters := map[string]string{
@@ -148,11 +151,13 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 				fmt.Println(torrent.Name, "处于", torrent.State, "状态，跳过")
 				continue
 			}*/
-			if torrent.Tracker == "" { //when have multy trackers
+			torrent.Tracker = ""
+			// Force to use "api/v2/torrents/trackers" to get trackers
+			if true {
 				trackers, _ := qb.TorrentTrackers(torrent.Hash)
 				first := true
 				for _, v := range trackers {
-					if v.Tier >= 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
+					if v.Tier >= 0 && v.Status != 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
 						if first {
 							torrent.Tracker = v.URL
 							first = false
@@ -182,7 +187,7 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 		if len(torrents) < singlelimit {
 			break
 		}
-		//0.010s
+		//10=0.010s
 		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 	rt.hash2Torrent = hash2Torrent
@@ -258,7 +263,6 @@ func checkTorrentHasTracker(path string) bool {
 	if err != nil {
 		panic(err)
 	}
-	//fmt.Println(data)
 	rt := cast.ToStringMap(data)
 	if rt["announce"] == nil {
 		return rt["announce-list"] != nil
@@ -327,13 +331,6 @@ func appendAnnounce(path string, trackers []string) {
 	}
 }
 func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName string) error {
-	//目录-分类-[tracker][tag1,tag2]name.torrent
-	//目录-tracker-分类-[tag1,tag2]name.torrent
-	//目录-tracker-[分类][tag1,tag2]name.torrent
-
-	//style := 2
-	//pathStyle := []string{"<SafePath>/<tracker>/<category>/"}
-	//fmt.Println("目前有四种输出方式:")
 	errorCount := 0
 	doneHashs := []string{}
 	curPathStyle := "export/<path>/<trackerhost>/<category>/"
@@ -549,6 +546,7 @@ func init() {
 	flag.StringVar(&filterTag, "ft", "-", "TagFilter")
 	flag.StringVar(&appendTag, "at", "-", "AppendTag")
 	flag.BoolVar(&disableTrackerHostAnalize, "disableAnalize", false, "DisableTrackerHostAnalize")
+	flag.BoolVar(&debug, "debug", false, "Debug")
 }
 
 func main() {
