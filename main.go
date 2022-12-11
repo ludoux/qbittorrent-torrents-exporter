@@ -45,7 +45,7 @@ var (
 	debug                     bool = false
 )
 
-var version string = "0.3.3"
+var version string = "0.3.4"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -378,14 +378,31 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		curFilename = strings.ReplaceAll(curFilename, "<state>", toSafeFolderName(torrent.State))
 		curFilename = strings.ReplaceAll(curFilename, "<name>", toSafeFolderName(torrent.Name))
 		_, err = os.Stat("BT_backup/" + hash + ".torrent")
-		if err != nil {
-			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Not Found in BT_backup")
+		if err != nil && os.IsNotExist(err) {
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ".torrent) Not Found in BT_backup")
+			errorCount++
+			continue
+		} else if err != nil && os.IsPermission(err) {
+			fmt.Println("Error: No permission to access BT_backup/", torrent.Hash, ".torrent for ", torrent.Name)
+			errorCount++
+			continue
+		} else if err != nil {
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ".", "torrent) ", err.Error())
 			errorCount++
 			continue
 		}
+
 		_, err = os.Stat("BT_backup/" + hash + ".fastresume")
-		if err != nil {
-			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") .fastresume Not Found in BT_backup")
+		if err != nil && os.IsNotExist(err) {
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ".fastresume) Not Found in BT_backup")
+			errorCount++
+			continue
+		} else if err != nil && os.IsPermission(err) {
+			fmt.Println("Error: No permission to access BT_backup/", torrent.Hash, ".fastresume for ", torrent.Name)
+			errorCount++
+			continue
+		} else if err != nil {
+			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ".", "fastresume) ", err.Error())
 			errorCount++
 			continue
 		}
