@@ -67,6 +67,12 @@ func getTrackerHost(trackers string) (string, error) {
 	if disableTrackerHostAnalize {
 		return "_tracker_", nil
 	}
+	if debug {
+		fmt.Println("==[Debug]==\nRaw Trackers: " + trackers)
+	}
+	if len(trackers) == 0 {
+		return "_notracker_", nil
+	}
 	hostReg := regexp.MustCompile(`((http://)|(https://)|(tcp://)|(udp://)|(ws://)|(wss://))?(?P<main>[^/]+?)(:\d+)?/`)
 	ipv4IpReg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
 	urls := strings.Split(trackers, "(split)")
@@ -115,7 +121,7 @@ func getTrackerHost(trackers string) (string, error) {
 		}
 	}
 	if debug {
-		fmt.Println("==[Debug]==\nRaw Trackers: " + trackers + "\nResult: " + result + "\n==[Off]==")
+		fmt.Println("Result: " + result + "\n==[Off]==")
 	}
 	return result, nil
 }
@@ -359,6 +365,11 @@ func exportTorrentFiles(hashs *hashsPair, filter *filterOptions, appendTagName s
 		h, err := getTrackerHost(torrent.Tracker)
 		if err != nil {
 			fmt.Println("Error: ", torrent.Name, "(", torrent.Hash, ") Failed to getTrackerHost. err:"+err.Error())
+			errorCount++
+			continue
+		}
+		if h == "_notracker_" {
+			fmt.Println("Warning: ", torrent.Name, "(", torrent.Hash, ") 's tracker is empty.")
 			errorCount++
 			continue
 		}
