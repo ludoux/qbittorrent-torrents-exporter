@@ -14,6 +14,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -45,7 +47,7 @@ var (
 	debug                     bool = false
 )
 
-var version string = "0.3.4"
+var version string = "0.3.5"
 
 type hashsPair struct {
 	hash2Torrent      map[string]qbt.BasicTorrent
@@ -578,6 +580,23 @@ func init() {
 }
 
 func main() {
+	_, err := os.Stat("BT_backup")
+	if err != nil && os.IsNotExist(err) {
+		log.Fatal("Error: BT_backup folder does not exist.")
+	} else if err != nil && os.IsPermission(err) {
+		log.Fatal("Error: exporter has no permission to access BT_backup.")
+	} else if err != nil {
+		log.Fatal("Error:", err.Error())
+	} else {
+		fileInfoList, err := ioutil.ReadDir("BT_backup")
+		if err != nil {
+			log.Fatal("Error: Failed to read BT_backup path:", err)
+		}
+		if len(fileInfoList) == 0 {
+			log.Fatal("Error:  There is no file in BT_backup folder.")
+		}
+		fmt.Println("BT_backup check PASS. It has", len(fileInfoList), "files, the 1st is", fileInfoList[0].Name(), "with the size of", fileInfoList[0].Size())
+	}
 	flag.Parse()
 	fmt.Println("github.com/ludoux/qbittorrent-torrents-exporter v" + version)
 	checkUpdateUrl := "https://gitee.com/ludoux/check-update/raw/master/qbittorrent-torrents-exporter/version.txt"
