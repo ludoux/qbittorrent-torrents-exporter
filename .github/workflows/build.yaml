@@ -24,7 +24,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          body: ${{ steps.changelog.outputs.changelog }} \n **IMPORTANT NOTICE 免责声明** \n This is a **UNOFFICIAL** software which has no relationship with qBtorrent team. I will take no responsibility for any data loss, chaotic qB tasks and/or hardware damage. \n这是一款与 qBittorrent 开发团队无关的第三方程序，我不会对任何可能的数据丢失、混乱的 qB 任务与/或硬件损坏承担责任。
           draft: false
           prerelease: false
 
