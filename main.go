@@ -14,12 +14,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
-	"net/http"
+	"net"
+	"net/url"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,7 +27,7 @@ import (
 	bencode "github.com/jackpal/bencode-go"
 	"github.com/nohajc/go-qbittorrent/qbt"
 	"github.com/spf13/cast"
-	"github.com/wxnacy/wgo/arrays"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 )
 
 var qb *qbt.Client
@@ -65,7 +64,6 @@ type filterOptions struct {
 }
 
 func getTrackerHost(trackers string) (string, error) {
-
 	if disableTrackerHostAnalize {
 		return "_tracker_", nil
 	}
@@ -73,45 +71,34 @@ func getTrackerHost(trackers string) (string, error) {
 		fmt.Println("==[Debug]==\nRaw Trackers: " + trackers)
 	}
 	if len(trackers) == 0 {
-		return "_notracker_", nil
+		return "_no_tracker_", nil
 	}
-	hostReg := regexp.MustCompile(`((http://)|(https://)|(tcp://)|(udp://)|(ws://)|(wss://))?(?P<main>[^/]+?)(:\d+)?/`)
-	ipv4IpReg := regexp.MustCompile(`^\d+\.\d+\.\d+\.\d+$`)
 	urls := strings.Split(trackers, "(split)")
 	result := ""
 	preHost := ""
 	warningFlag := false
-	for _, url := range urls {
-		matchs := hostReg.FindStringSubmatch(url)
-		groupNames := hostReg.SubexpNames()
-		tmpHost := ""
-		for i, v := range groupNames {
-			if v == "main" {
-				tmpHost = matchs[i]
-			}
+	for _, ur := range urls {
+		url, err := url.Parse(ur)
+		if err != nil {
+			return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 		}
+		tmpHost := url.Hostname()
+
+		fmt.Println(url.Hostname())
 		if tmpHost == "" {
-			return "", errors.New("can't get main host! The raw trackers is" + trackers)
+			return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 		}
 		if tmpHost[0] == '[' {
 			//ipv6
 			result = tmpHost
-		} else if ipv4IpReg.MatchString(tmpHost) {
-			//ipv4
+		} else if net.ParseIP(tmpHost) != nil {
+			//可以转换为IP
 			result = tmpHost
 		} else {
 			//domain
-			sp := strings.Split(tmpHost, ".")
-			gLTD := []string{"com", "net", "org", "co"}
-			if len(sp) >= 3 {
-				if arrays.StringsContains(gLTD, sp[len(sp)-2]) != -1 {
-					// tracker.example.com.us will return as example.com.us
-					result = sp[len(sp)-3] + "." + sp[len(sp)-2] + "." + sp[len(sp)-1]
-				} else {
-					result = sp[len(sp)-2] + "." + sp[len(sp)-1]
-				}
-			} else {
-				result = sp[len(sp)-2] + "." + sp[len(sp)-1]
+			result, err = publicsuffix.Domain(tmpHost)
+			if err != nil {
+				return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 			}
 		}
 		if preHost == "" {
@@ -138,7 +125,10 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 
 	qb = qbt.NewClient(url)
 
-	qb.Login(qbt.LoginOptions{Username: username, Password: password})
+	err := qb.Login(qbt.LoginOptions{Username: username, Password: password})
+	if err != nil {
+		log.Fatal("Error: Login failed. Please check your url, username and password: ", err)
+	}
 	singlelimit := 100
 	for i := 0; true; i++ {
 		filters := map[string]string{
@@ -148,7 +138,9 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 		}
 		//offset 即为忽略前面多少个，当超过之后，会返回offset=0返回的值
 		torrents, _ := qb.Torrents(filters)
-
+		if len(torrents) == 0 {
+			break
+		}
 		if _, dupe := hash2Torrent[torrents[0].Hash]; dupe {
 			break
 		}
@@ -582,42 +574,36 @@ func init() {
 func main() {
 	_, err := os.Stat("BT_backup")
 	if err != nil && os.IsNotExist(err) {
-		log.Fatal("Error: BT_backup folder does not exist.")
+		log.Fatal("Error: the BT_backup folder does not exist.")
 	} else if err != nil && os.IsPermission(err) {
 		log.Fatal("Error: exporter has no permission to access BT_backup.")
 	} else if err != nil {
 		log.Fatal("Error:", err.Error())
 	} else {
-		fileInfoList, err := ioutil.ReadDir("BT_backup")
+		dirEntry, err := os.ReadDir("BT_backup")
 		if err != nil {
 			log.Fatal("Error: Failed to read BT_backup path:", err)
 		}
-		if len(fileInfoList) == 0 {
-			log.Fatal("Error:  There is no file in BT_backup folder.")
+		if len(dirEntry) == 0 {
+			log.Fatal("Error: There is no file in BT_backup folder.")
 		}
-		fmt.Println("BT_backup check PASS. It has", len(fileInfoList), "files, the 1st is", fileInfoList[0].Name(), "with the size of", fileInfoList[0].Size())
+		info, err := dirEntry[0].Info()
+		if err != nil {
+			log.Fatal("Error: Failed to read 1st file info:", err)
+		}
+		fmt.Println("( BT_backup check PASS. It has", len(dirEntry), "files, the 1st file is", dirEntry[0].Name(), "with the size of", info.Size(), ")")
 	}
 	flag.Parse()
 	fmt.Println("github.com/ludoux/qbittorrent-torrents-exporter v" + version)
-	checkUpdateUrl := "https://gitee.com/ludoux/check-update/raw/master/qbittorrent-torrents-exporter/version.txt"
-	if githubChannel {
-		checkUpdateUrl = "https://raw.githubusercontent.com/ludoux/qbittorrent-torrents-exporter/master/version.txt"
-	}
-	resp, err := http.Get(checkUpdateUrl)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	if string(body) != version {
-		fmt.Println("New version found!")
-	}
 	if qbUrl == "" {
-		fmt.Print("qBittorrent host url(ex http://127.0.0.1:6363 ):")
+		fmt.Print("qBittorrent host url (ex http://127.0.0.1:6363 ):")
 		fmt.Scanln(&qbUrl)
-		fmt.Print("qBittorrent username:")
+		if !strings.HasPrefix(qbUrl, "http") {
+			qbUrl = "http://" + qbUrl
+		}
+		fmt.Print("qBittorrent username (press Enter directly if autologon):")
 		fmt.Scanln(&qbUsername)
-		fmt.Print("qBittorrent password:")
+		fmt.Print("qBittorrent password (press Enter directly if autologon):")
 		fmt.Scanln(&qbPassword)
 	}
 	hashs, err := genMap(qbUrl, qbUsername, qbPassword)

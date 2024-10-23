@@ -1,14 +1,16 @@
 module github.com/ludoux/qbittorrent-torrents-exporter
 
-go 1.17
-
-require github.com/nohajc/go-qbittorrent v0.0.0-20210928152615-01f6031ca333
+go 1.23.2
 
 require (
-	github.com/IncSW/go-bencode v0.2.2 // indirect
-	github.com/jackpal/bencode-go v1.0.0 // indirect
+	github.com/jackpal/bencode-go v1.0.2
+	github.com/nohajc/go-qbittorrent v0.0.0-20210928152615-01f6031ca333
+	github.com/spf13/cast v1.7.0
+	github.com/weppos/publicsuffix-go v0.40.2
+)
+
+require (
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/spf13/cast v1.4.1 // indirect
-	github.com/wxnacy/wgo v1.0.4
-	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2 // indirect
+	golang.org/x/net v0.30.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 )

@@ -54,10 +54,11 @@ jobs:
     - id: get_version
       uses: battila7/get-version-action@v2
 
-    - uses: wangyoucao577/go-release-action@v1.34
+    - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         release_tag: ${{steps.get_version.outputs.version}}
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
+        goversion: 1.23.2
         md5sum: FALSE
