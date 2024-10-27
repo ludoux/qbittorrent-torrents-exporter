@@ -40,13 +40,20 @@ Default BT_backup paths ([inspired from jslay88/qbt_migrate](https://github.com/
 | `ft`            | 需要导出的标签(留空全导出) \| Tag to be exported(Stay blank to export all) | `-ft "tag1,tag2"` or `-ft ""`            |
 | `fth`           | 需要导出的tracker(留空全导出) \| Tracker to be exported(Stay blank to export all) | `-fth "leech.com,club.net"` or `-fth ""` |
 | `at`            | 将导出的任务打上此标签名(留空不打) \| Tag exported torrent task(Stay blank to not tag) | `-at "exported"` or `-at ""`             |
-| `githubchannel` | Force to use github channel to check update instead of using gitee channel | `-githubchannel`                         |
+| `disableAnalyze`            | 详见下文 \| More details below | `-disableAnalyze`             |
+| `detectBt`            | 详见下文 \| More details below | `-detectBt`             |
 
 ```
 ❯ ./qbittorrent-torrents-exporter -h
-Usage of ./main:
+Usage of ./qbittorrent-torrents-exporter:
   -at string
         AppendTag (default "-")
+  -debug
+        Debug
+  -detectBt
+        if true, we treat torrents with DHT enabled as BT torrents, and report its tracker as _bt_
+  -disableAnalyze
+        if true, we report all torrent trackers as _tracker_
   -fc string
         CategoryFilter (default "-")
   -fp string
@@ -55,8 +62,6 @@ Usage of ./main:
         TagFilter (default "-")
   -fth string
         TrackerHostFilter (default "-")
-  -githubchannel
-        Force to use github channel to check update instead of gitee channel.
   -qh string
         qBittorrent host. ex: http://127.0.0.1:6363
   -qp string
@@ -76,6 +81,24 @@ PS: If  `qh` is unset, tool will ask users to give login information. If `fc` `f
 ❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080" -qu "admin" -qp "adminadmin" -fc "cate_needed_to_export"
 ❯ ./qbittorrent-torrents-exporter -qh "http://127.0.0.1:8080" -qu "admin" -qp "adminadmin" -fc "cate_needed_to_export" -at "exported"
 ```
+
+#### disableAnalyze & detectBt & How the it analyze TrackerHost
+本工具最容易出现的问题便是在 tracker 分析上，这里提供两个单独的开关来调整 tracker 分析的工作状态，以减少软件出错的机率。请注意如下的回报只指 TrackerHostFilter 页面，不会影响实际导出种子文件的 tracker 信息。
+
+分析 TrackerHost 的目的是在 TrackerHostFilter 精准提出 `host.domain` 类型的分类。理论上它会排除二级域名，只取域名区域。
+
+- 当 `-disableAnalyze` 启用时，**所有**种子都会回报 `_tracker_`
+- 当 `-detectBt` 启用时，**所有 DHT 被禁用**种子都会回报 `_bt_`（请注意，当在qB中关闭 DHT 功能时，可能不能正常识别 BT 种子），其余情况则按下一条（正常情况）分析。
+- 正常情况下。如果没有 tracker，回报`_no_tracker_`；如果分析失败，回报`_err_tracker_`；如果多主机名，回报`_multi_trackerhost_`。
+
+The most common bug of this exporter happens during analyzing tracker hosts. Here're two tags to tweak the progress to avoid some bugs. Please note that the following "report" only refers to the TrackerHostFilter page and does not affect the tracker information of the actual exported torrent files.
+
+The purpose of analyzing TrackerHost is to accurately present `host.domain` type classifications in TrackerHostFilter. Theoretically it will exclude secondary domains and take only domain zones.
+
+- When `-disableAnalyze` is enabled, **all** seeds report `_tracker_`
+- When `-detectBt` is enabled, **all DHT disabled **seeds report `_bt_` (note that BT torrents may not be recognized properly when the DHT function is disabled in qB), and the rest of the cases are analyzed as in the next (normal) case.
+- Normal case. Reports `_no_tracker_` if there is no tracker, `_err_tracker_` if the analysis fails, and `_multi_trackerhost_` for multiple hostnames.
+
 
 ### 交互式运行 | Running directly
 

@@ -33,7 +33,6 @@ import (
 var qb *qbt.Client
 
 var (
-	githubChannel             bool
 	qbUrl                     string
 	qbUsername                string
 	qbPassword                string
@@ -42,7 +41,8 @@ var (
 	filterCategory            string
 	filterTag                 string
 	appendTag                 string
-	disableTrackerHostAnalize bool = false
+	disableTrackerHostAnalyze bool = false
+	detectBtTorrents          bool = false
 	debug                     bool = false
 )
 
@@ -64,8 +64,11 @@ type filterOptions struct {
 }
 
 func getTrackerHost(trackers string) (string, error) {
-	if disableTrackerHostAnalize {
+	if disableTrackerHostAnalyze {
 		return "_tracker_", nil
+	}
+	if detectBtTorrents && trackers == "BT" {
+		return "_bt_", nil
 	}
 	if debug {
 		fmt.Println("==[Debug]==\nRaw Trackers: " + trackers)
@@ -80,13 +83,13 @@ func getTrackerHost(trackers string) (string, error) {
 	for _, ur := range urls {
 		url, err := url.Parse(ur)
 		if err != nil {
-			return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
+			return "_err_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 		}
 		tmpHost := url.Hostname()
 
 		fmt.Println(url.Hostname())
 		if tmpHost == "" {
-			return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
+			return "_err_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 		}
 		if tmpHost[0] == '[' {
 			//ipv6
@@ -98,15 +101,15 @@ func getTrackerHost(trackers string) (string, error) {
 			//domain
 			result, err = publicsuffix.Domain(tmpHost)
 			if err != nil {
-				return "_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
+				return "_err_tracker_", errors.New("can't get main host! The raw trackers is " + trackers)
 			}
 		}
 		if preHost == "" {
 			preHost = result
 		} else if preHost != result && !warningFlag {
-			fmt.Println("Warning: different trackerhost in the same torrent! Will use the last trackerhost for filter.")
-			warningFlag = true
-			preHost = result
+			fmt.Println("Warning: different trackerhost in the same torrent! Will report _multi_hosts_")
+			result = "_multi_trackerhost_"
+			break
 		}
 	}
 	if debug {
@@ -155,12 +158,14 @@ func genMap(url string, username string, password string) (hashsPair, error) {
 			// Force to use "api/v2/torrents/trackers" to get trackers
 			if true {
 				trackers, _ := qb.TorrentTrackers(torrent.Hash)
-				first := true
 				for _, v := range trackers {
-					if v.Tier >= 0 && v.Status != 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
-						if first {
+					if detectBtTorrents && v.Tier < 0 && strings.Contains(v.URL, "DHT") && v.Status > 0 {
+						// if detectBtTorrents is true, we treat torrents with DHT enabled as BT torrents.
+						torrent.Tracker = "BT"
+						break
+					} else if v.Tier >= 0 && v.Status != 0 { //Tier < 0 is used as placeholder when tier does not exist for special entries (such as DHT).
+						if torrent.Tracker == "" {
 							torrent.Tracker = v.URL
-							first = false
 						} else {
 							torrent.Tracker = torrent.Tracker + "(split)" + v.URL
 						}
@@ -558,7 +563,6 @@ func setFilter(hashs *hashsPair, filterOp *filterOptions, appendTag *string) {
 	*appendTag = input
 }
 func init() {
-	flag.BoolVar(&githubChannel, "githubchannel", false, "Force to use github channel to check update instead of gitee channel.")
 	flag.StringVar(&qbUrl, "qh", "", "qBittorrent host. ex: http://127.0.0.1:6363")
 	flag.StringVar(&qbUsername, "qu", "", "qBittorrent usrname.")
 	flag.StringVar(&qbPassword, "qp", "", "qBittorrent password.")
@@ -567,7 +571,8 @@ func init() {
 	flag.StringVar(&filterCategory, "fc", "-", "CategoryFilter")
 	flag.StringVar(&filterTag, "ft", "-", "TagFilter")
 	flag.StringVar(&appendTag, "at", "-", "AppendTag")
-	flag.BoolVar(&disableTrackerHostAnalize, "disableAnalize", false, "DisableTrackerHostAnalize")
+	flag.BoolVar(&disableTrackerHostAnalyze, "disableAnalyze", false, "if true, we report all torrent trackers as _tracker_")
+	flag.BoolVar(&detectBtTorrents, "detectBt", false, "if true, we treat torrents with DHT enabled as BT torrents, and report its tracker as _bt_")
 	flag.BoolVar(&debug, "debug", false, "Debug")
 }
 
